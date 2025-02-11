@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Verhindert Zoom und Größenänderungen auf Mobilgeräten -->
+  <meta name="viewport" 
+        content="width=device-width, 
+                 initial-scale=1.0, 
+                 maximum-scale=1.0, 
+                 user-scalable=no,
+                 shrink-to-fit=no">
+                 
+  <title>Responsiver Retro LED Taschenrechner + Zinsberechnung</title>
+  <style>
+    /* --- Globale Einstellungen gegen Zoom/Scroll/Highlight auf Mobile --- */
+    html, body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: none; 
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      background-color: #1e1e1e;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      text-align: center;
+    }
+
+    /* --- Flip-Container für Vorder- und Rückseite --- */
+    .flip-card {
+      perspective: 1000px; /* Ermöglicht 3D-Effekt */
+      width: 100%;
+      max-width: 420px;
+      margin: 50px auto;
+    }
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      transition: transform 0.8s;
+      transform-style: preserve-3d; /* Wichtig für 3D-Drehung */
+    }
+    .flip-card-inner.flipped {
+      transform: rotateY(180deg);
+    }
+    .flip-card-front,
+    .flip-card-back {
+      position: absolute;
+      width: 100%;
+      backface-visibility: hidden;
+      top: 0;
+      left: 0;
+    }
+
+    /* --- VORDERSEITE: Dein Taschenrechner --- */
+    .flip-card-front {
+      /* Inhalt: Original-Taschenrechner */
+      z-index: 2;
+    }
+
+    /* --- RÜCKSEITE: Zinsberechnung (anthrazit) --- */
+    .flip-card-back {
+      transform: rotateY(180deg);
+      background: #2b2b2b; /* Anthrazit */
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 5px 5px 15px #111, -5px -5px 15px #2a2a2a;
+      box-sizing: border-box; /* Damit Padding etc. in der Höhe enthalten sind */
+    }
+
+    /* --- Hier beginnt dein Original CSS für den Taschenrechner --- */
+
+    .calculator {
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      background: #333;
+      border-radius: 15px;
+      box-shadow: 5px 5px 15px #111, -5px -5px 15px #2a2a2a;
+      position: relative;
+      background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+      overflow: hidden;
+    }
+    
+    .calculator::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.05),
+        rgba(255, 255, 255, 0.05) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      pointer-events: none;
+      mix-blend-mode: overlay;
+      border-radius: inherit;
+    }
+
+    /* --- Display des Taschenrechners --- */
+    #display {
+      width: 100%;
+      height: 100px;
+      font-family: Arial, sans-serif;  /* Schriftart geändert */
+      font-size: 65px;
+      line-height: 100px;
+      text-align: right;
+      padding: 0 10px;
+      background: #000;
+      color: #fff;  /* Farbe geändert */
+      font-weight: bold;
+      border-radius: 8px;
+      box-sizing: border-box;
+      /* Schatten entfernt: */
+      /* box-shadow: none; */
+      /* text-shadow: none; */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 15px;
+    }
+    button {
+      padding: 20px;
+      font-size: 18px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #333, #222);
+      color: white;
+      box-shadow: 5px 5px 10px #111, -5px -5px 10px #2a2a2a;
+      transition: all 0.2s ease-in-out;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    button:active {
+      box-shadow: inset 3px 3px 5px #111, inset -3px -3px 5px #555;
+      transform: scale(0.95);
+    }
+
+    .operator { background: #ff8c00; }
+    .equals   { background: #ff0000; }
+    .clear    { background: #006400; }
+    .delete   { background: #800000; }
+    .skonto   { background: #003366; }
+
+    .mwst-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .mwst-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .mwst {
+      flex: 1;
+      background: #006400;
+      color: white;
+      font-size: 16px;
+      padding: 15px;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      text-align: center;
+    }
+
+    .brand-container {
+      width: 100%;
+      text-align: right;
+      margin-bottom: 5px;
+    }
+    .brand {
+      display: inline-block;
+      color: #ff0000;
+      font-size: 24px;
+      font-weight: bold;
+      margin-right: 10px;
+      text-shadow: 
+        1px 1px 0 #000,
+        2px 2px 2px #333;
+    }
+
+    /* --- RESPONSIVE ANPASSUNGEN --- */
+    @media (max-width: 600px) {
+      #display {
+        font-size: 38px;
+        line-height: 100px;
+      }
+      button {
+        padding: 15px;
+        font-size: 16px;
+      }
+    }
+    @media (max-width: 400px) {
+      #display {
+        font-size: 32px;
+        line-height: 100px;
+      }
+      button {
+        padding: 12px;
+        font-size: 14px;
+      }
+    }
+    
+    /* Zusätzliche Anpassungen für sehr kleine Geräte */
+    @media (max-width: 420px) {
+      .calculator {
+        padding: 10px;
+      }
+    }
+
+    /* --- Button für Zinsberechnung (dunkelblau) --- */
+    .zins-button {
+      width: 100%;
+      margin-top: 10px;
+      background: #003366; /* Dunkelblau */
+    }
+
+    /* --- RÜCKSEITE: Formular-Design --- */
+    .zins-title {
+      font-size: 26px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+    .zins-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 350px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .zins-form label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .zins-form input,
+    .zins-form select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background: #444;
+      color: #fff;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .zins-form button {
+      margin-top: 10px;
+      background: #ff0000;
+      font-size: 18px;
+      text-align: center;
+    }
+    .zins-result {
+      margin-top: 20px;
+      text-align: left;
+      max-width: 350px;
+      margin: 0 auto;
+      background: #333;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 2px 2px 5px #000;
+    }
+    /* Neue Regel: Endsumme in Zinsberechnung als große, hellgrüne Schrift */
+    .zins-result p {
+      font-size: 32px;
+      color: #90ee90;
+      margin: 0;
+    }
+    
+    .back-btn {
+      margin-top: 15px;
+      font-size: 18px;
+      background: #006400;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sounddatei (Klick-Effekt). Bitte "click.mp3" ins gleiche Verzeichnis legen. -->
+  <audio id="clickSound" src="click.mp3" preload="auto"></audio>
+
+  <!-- FLIP-CARD-CONTAINER -->
+  <div class="flip-card">
+    <div class="flip-card-inner" id="flipCardInner">
+      
+      <!-- VORDERSEITE: Taschenrechner -->
+      <div class="flip-card-front">
+        <div class="calculator">
+          <!-- Branding-Zeile -->
+          <div class="brand-container">
+            <div class="brand">KOROGLU</div>
+          </div>
+
+          <div id="display"></div>
+
+          <div class="buttons">
+            <!-- Zeile 1 -->
+            <button class="clear"  onclick="playSound(); clearDisplay()">AC</button>
+            <button class="delete" onclick="playSound(); backspace()">DEL</button>
+            <button class="operator" onclick="playSound(); insert('%')">%</button>
+            <button class="operator" onclick="playSound(); insert('÷')">÷</button>
+
+            <!-- Zeile 2 -->
+            <button onclick="playSound(); insert('7')">7</button>
+            <button onclick="playSound(); insert('8')">8</button>
+            <button onclick="playSound(); insert('9')">9</button>
+            <button class="operator" onclick="playSound(); insert('x')">x</button>
+
+            <!-- Zeile 3 -->
+            <button onclick="playSound(); insert('4')">4</button>
+            <button onclick="playSound(); insert('5')">5</button>
+            <button onclick="playSound(); insert('6')">6</button>
+            <button class="operator" onclick="playSound(); insert('-')">-</button>
+
+            <!-- Zeile 4 -->
+            <button onclick="playSound(); insert('1')">1</button>
+            <button onclick="playSound(); insert('2')">2</button>
+            <button onclick="playSound(); insert('3')">3</button>
+            <button class="operator" onclick="playSound(); insert('+')">+</button>
+
+            <!-- Zeile 5 -->
+            <button onclick="playSound(); insert('0')">0</button>
+            <button onclick="playSound(); insert(',')">,</button>
+            <button class="equals" onclick="playSound(); calculate()">=</button>
+            <button class="skonto" onclick="playSound(); pressSkonto()">S</button>
+          </div>
+
+          <!-- MwSt-Funktionen -->
+          <div class="mwst-container">
+            <div class="mwst-row">
+              <button class="mwst" onclick="playSound(); calculateMwStPlus(19)">MwSt +19%</button>
+              <button class="mwst" onclick="playSound(); calculateMwStMinus(19)">MwSt -19%</button>
+            </div>
+            <div class="mwst-row">
+              <button class="mwst" onclick="playSound(); calculateMwStPlus(7)">MwSt +7%</button>
+              <button class="mwst" onclick="playSound(); calculateMwStMinus(7)">MwSt -7%</button>
+            </div>
+          </div>
+
+          <!-- NEUER BUTTON für Zinsberechnung (dunkelblau) -->
+          <button class="mwst zins-button" onclick="playSound(); flipToZins()">Zinsberechnung</button>
+        </div>
+      </div>
+
+      <!-- RÜCKSEITE: Zinsberechnung -->
+      <div class="flip-card-back">
+        <h2 class="zins-title">Zinsberechnung</h2>
+        <div class="zins-form">
+          <label for="startkapital">Startkapital (€):</label>
+          <input type="number" id="startkapital" placeholder="z.B. 5000" />
+
+          <label for="zinssatz">Zinssatz (% p.a.):</label>
+          <input type="number" id="zinssatz" step="0.01" placeholder="z.B. 3" />
+
+          <label for="laufzeit">Laufzeit (Jahre):</label>
+          <input type="number" id="laufzeit" placeholder="z.B. 2" />
+
+          <label for="verzinsung">Verzinsung:</label>
+          <select id="verzinsung">
+            <option value="einfach">Ohne Zinseszins (Auszahlung)</option>
+            <option value="zinseszins">Mit Zinseszins (Wiederanlage)</option>
+          </select>
+
+          <button onclick="playSound(); berechneZinsen()">Berechnen</button>
+        </div>
+
+        <div class="zins-result" id="zinsResult">
+          <!-- Hier kommt nur das Endkapital rein -->
+        </div>
+
+        <!-- Zurück-Button, um wieder zur Vorderseite zu flippen -->
+        <button class="mwst back-btn" onclick="playSound(); flipBack()">Zurück</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ----------------------------------------------------
+    // SOUND
+    // ----------------------------------------------------
+    const clickSound = document.getElementById('clickSound');
+    function playSound() {
+      clickSound.currentTime = 0;
+      clickSound.play();
+    }
+
+    // ----------------------------------------------------
+    // FLIP-FUNKTIONEN
+    // ----------------------------------------------------
+    const flipInner = document.getElementById('flipCardInner');
+    function flipToZins() {
+      flipInner.classList.add('flipped');
+      // Höhe synchronisieren, falls sich die Inhalte verändern
+      syncFlipCardHeights();
+    }
+    function flipBack() {
+      flipInner.classList.remove('flipped');
+      syncFlipCardHeights();
+    }
+
+    // ----------------------------------------------------
+    // ZAHLENFORMAT (DE)
+    // ----------------------------------------------------
+    function parseGerman(str) {
+      str = str.replace(/\./g, '');
+      str = str.replace(',', '.');
+      return parseFloat(str);
+    }
+    function formatGerman(num) {
+      if (isNaN(num) || !isFinite(num)) {
+        return "Error";
+      }
+      return new Intl.NumberFormat("de-DE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
+    }
+
+    // ----------------------------------------------------
+    // DISPLAY-FUNKTIONEN (Front-Seite)
+    // ----------------------------------------------------
+    function insert(value) {
+      let display = document.getElementById("display");
+      display.textContent += value;
+    }
+    function clearDisplay() {
+      document.getElementById("display").textContent = "";
+    }
+    function backspace() {
+      let display = document.getElementById("display");
+      display.textContent = display.textContent.slice(0, -1);
+    }
+
+    // ----------------------------------------------------
+    // SKONTO-FUNKTIONEN (Front-Seite)
+    // ----------------------------------------------------
+    let skontoMode = false;
+    let skontoBaseValue = 0;
+
+    function pressSkonto() {
+      let display = document.getElementById("display");
+      let currentValue = parseGerman(display.textContent);
+      if (!isNaN(currentValue)) {
+        skontoBaseValue = currentValue;
+        display.textContent = "%";
+        skontoMode = true;
+      } else {
+        display.textContent = "Error";
+      }
+    }
+    function handleSkontoDiscount() {
+      let display = document.getElementById("display");
+      let discountStr = display.textContent.replace("%", "");
+      let discountVal = parseGerman(discountStr);
+      if (isNaN(discountVal)) {
+        display.textContent = "Error";
+      } else {
+        let result = skontoBaseValue * (1 - discountVal / 100);
+        display.textContent = formatGerman(result);
+      }
+      skontoMode = false;
+    }
+
+    // ----------------------------------------------------
+    // HAUPT-BERECHNUNG (Front-Seite)
+    // ----------------------------------------------------
+    function calculate() {
+      if (skontoMode) {
+        handleSkontoDiscount();
+        return;
+      }
+      let display = document.getElementById("display");
+      let expression = display.textContent;
+
+      expression = expression.replace(/\./g, '');
+      expression = expression.replace(/,/g, '.');
+      expression = expression.replace(/÷/g, '/').replace(/x/g, '*');
+
+      expression = expression
+        .replace(/(\d+(\.\d+)?)\s*\+\s*(\d+(\.\d+)?)%/g, "($1 + ($1 * $3 / 100))")
+        .replace(/(\d+(\.\d+)?)\s*-\s*(\d+(\.\d+)?)%/g, "($1 - ($1 * $3 / 100))")
+        .replace(/(\d+(\.\d+)?)\s*\*\s*(\d+(\.\d+)?)%/g, "($1 * ($3 / 100))")
+        .replace(/(\d+(\.\d+)?)\s*\/\s*(\d+(\.\d+)?)%/g, "($1 / ($3 / 100))");
+
+      try {
+        let result = eval(expression);
+        display.textContent = formatGerman(result);
+      } catch (error) {
+        display.textContent = "Error";
+      }
+    }
+
+    // ----------------------------------------------------
+    // MWST-FUNKTIONEN (Front-Seite)
+    // ----------------------------------------------------
+    function calculateMwStPlus(rate) {
+      let display = document.getElementById("display");
+      let value = parseGerman(display.textContent);
+      if (!isNaN(value)) {
+        let result = value * (1 + rate / 100);
+        display.textContent = formatGerman(result);
+      } else {
+        display.textContent = "Error";
+      }
+    }
+    function calculateMwStMinus(rate) {
+      let display = document.getElementById("display");
+      let value = parseGerman(display.textContent);
+      if (!isNaN(value)) {
+        let result = value / (1 + rate / 100);
+        display.textContent = formatGerman(result);
+      } else {
+        display.textContent = "Error";
+      }
+    }
+
+    // ----------------------------------------------------
+    // ZINSBERECHNUNG (Rückseite) - Nur Endkapital wird angezeigt
+    // ----------------------------------------------------
+    function berechneZinsen() {
+      const startkapital = parseGerman(document.getElementById("startkapital").value);
+      const zinssatz     = parseGerman(document.getElementById("zinssatz").value) / 100; 
+      const laufzeit     = parseGerman(document.getElementById("laufzeit").value);
+      const art          = document.getElementById("verzinsung").value; // "einfach" oder "zinseszins"
+
+      const resultDiv    = document.getElementById("zinsResult");
+
+      if (isNaN(startkapital) || isNaN(zinssatz) || isNaN(laufzeit)) {
+        resultDiv.innerHTML = "<p>Bitte gültige Werte eingeben!</p>";
+        return;
+      }
+
+      let endkapital = 0;
+
+      if (art === "einfach") {
+        // Einfache Verzinsung: Endkapital = K + K * p * n
+        const zinsenGesamt = startkapital * zinssatz * laufzeit;
+        endkapital = startkapital + zinsenGesamt;
+      } else {
+        // Zinseszins: Endkapital = K * (1 + p)^n
+        endkapital = startkapital * Math.pow(1 + zinssatz, laufzeit);
+      }
+
+      // Nur das Endkapital anzeigen
+      const fendkap = formatGerman(endkapital);
+      resultDiv.innerHTML = `<p><strong>Endkapital: </strong>${fendkap} €</p>`;
+    }
+
+    // ----------------------------------------------------
+    // ZUSÄTZLICHE FUNKTION: Synchronisation der Höhen von Vorder- und Rückseite
+    // ----------------------------------------------------
+    function syncFlipCardHeights() {
+      const calculator = document.querySelector('.flip-card-front .calculator');
+      const flipBack = document.querySelector('.flip-card-back');
+      if (calculator && flipBack) {
+        flipBack.style.height = calculator.offsetHeight + "px";
+      }
+    }
+
+    window.addEventListener('load', syncFlipCardHeights);
+    window.addEventListener('resize', syncFlipCardHeights);
+  </script>
+</body>
+</html>
